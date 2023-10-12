@@ -90,7 +90,7 @@ static void x86_dump_features()
 
     const char *term = getenv("TERM");
     const char *ws = "                    ";
-    int color_en = strncmp(term, "xterm", 5) == 0;
+    int color_en = term && strncmp(term, "xterm", 5) == 0;
 
     for (x86_cpu_feature *f = cpu_feature; f->name; f++)
     {

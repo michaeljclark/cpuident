@@ -2,10 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef WIN32
+#define alloca _alloca
+#else
+#include <alloca.h>
+#endif
+
 #include "cpuident.h"
 
 static int opt_help = 0;
 static int opt_info = 0;
+static int opt_sort = 0;
+static int opt_sort_description = 0;
 static int opt_env = 0;
 static int opt_color = 0;
 
@@ -74,6 +82,12 @@ static void x86_dump_cache_info()
     } while (i < 256);
 }
 
+int x86_compare_cpu_feature(const void *a, const void *b)
+{
+    x86_cpu_feature *fa = (x86_cpu_feature*)a, *fb = (x86_cpu_feature*)b;
+    return opt_sort ? strcmp(fa->name, fb->name) : strcmp(fa->desc, fb->desc);
+}
+
 static void x86_dump_features()
 {
     int leaf[32][3][4] = { 0 };
@@ -92,7 +106,15 @@ static void x86_dump_features()
     const char *ws = "                    ";
     int color_en = term && strncmp(term, "xterm", 5) == 0;
 
-    for (x86_cpu_feature *f = cpu_feature; f->name; f++)
+    x86_cpu_feature *feature_list = cpu_feature;
+    if (opt_sort || opt_sort_description) {
+        feature_list = alloca(sizeof(cpu_feature));
+        memcpy(feature_list, cpu_feature, sizeof(cpu_feature));
+        qsort(feature_list, sizeof(cpu_feature)/sizeof(cpu_feature[0])-1,
+            sizeof(x86_cpu_feature), x86_compare_cpu_feature);
+    }
+
+    for (x86_cpu_feature *f = feature_list; f->name; f++)
     {
         int x = f->l >= 0x80000000;
         int l = f->l - (x ? 0x80000000 : 0);
@@ -160,6 +182,8 @@ static void print_help(int argc, char **argv)
         "  -i, --info                         print cache info\n"
         "  -e, --env                          print as variables\n"
         "  -c, --color                        print in ANSI color\n"
+        "  -s, --sort                         sort features by name\n"
+        "  -S, --sort-description             sort features by description\n"
         "  -h, --help                         command line help\n",
         argv[0]
     );
@@ -185,6 +209,12 @@ static void parse_options(int argc, char **argv)
             i++;
         } else if (match_opt(argv[i], "-c", "--color")) {
             opt_color++;
+            i++;
+        } else if (match_opt(argv[i], "-s", "--sort")) {
+            opt_sort++;
+            i++;
+        } else if (match_opt(argv[i], "-S", "--sort-description")) {
+            opt_sort_description++;
             i++;
         } else if (match_opt(argv[i], "-C", "--cache")) {
             opt_color++;
